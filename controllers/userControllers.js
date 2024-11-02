@@ -69,10 +69,33 @@ const getAllUsers = async (req, res, next) => {
     const page = parseInt(req.query.page) - 1 || 0;
     const limit = parseInt(req.query.limit) || 2;
     const search = req.query.search || "";
+    const { userId } = req.query;
 
-    let users = await User.find({ name: { $regex: search, $options: "i" } })
-      .skip(page * limit)
-      .limit(limit);
+    let filteredUser;
+    if (!search) {
+      filteredUser = await User.find({
+        _id: { $ne: userId },
+      })
+        .skip(page * limit)
+        .limit(limit);
+    } else {
+      filteredUser = await User.find({
+        name: { $regex: search, $options: "i" },
+        _id: { $ne: userId },
+      });
+    }
+
+    let users = [];
+
+    filteredUser.map((item) =>
+      users.push({
+        id: item._id,
+        name: item.name,
+        email: item.email,
+        phone: item.phone,
+        avatar: item.avatar,
+      })
+    );
 
     const response = {
       error: false,
@@ -114,11 +137,11 @@ const getUser = async (req, res, next) => {
 
 const updateUser = async (req, res, next) => {
   try {
-    const { name, email, phone, password, newPassword, userId } = req.body;
+    const { name, email, phone, currentPassword, newPassword, userId } =
+      req.body;
     const avatar = req.file ? req.file.filename : "";
 
     const user = await User.findById(userId);
-
     if (!user) {
       const error = new Error("User not found");
       error.statusCode = 404;
@@ -133,8 +156,8 @@ const updateUser = async (req, res, next) => {
     user.phone = phone || user.phone;
     user.avatar = avatar || user.avatar;
 
-    if (newPassword && password) {
-      const isPasswordMatch = await user.comparePassword(password);
+    if (newPassword && currentPassword) {
+      const isPasswordMatch = await user.comparePassword(currentPassword);
 
       if (!isPasswordMatch) {
         const error = new Error(

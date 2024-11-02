@@ -30,7 +30,9 @@ const addANewMatch = async (req, res, next) => {
     const matchValues = req.body;
 
     const requestingTeam = matchValues.teams.requestingTeam.userId;
+    const requestingTeamName = matchValues.teams.requestingTeam.name;
     const requestedTeam = matchValues.teams.requestedTeam.userId;
+    const requestedTeamName = matchValues.teams.requestedTeam.name;
 
     const date = matchValues.date;
     const requestingTeamSquad = matchValues.squads.requestingTeamSquad.squadId;
@@ -79,8 +81,8 @@ const addANewMatch = async (req, res, next) => {
     const match = new Match({
       date,
       teams: {
-        requestingTeam: { userId: requestingTeam },
-        requestedTeam: { userId: requestedTeam },
+        requestingTeam: { userId: requestingTeam, name: requestingTeamName },
+        requestedTeam: { userId: requestedTeam, name: requestedTeamName },
       },
       squads: {
         requestingTeamSquad: { squadId: requestingTeamSquad },
@@ -113,11 +115,11 @@ const getMatchByRequestingTeamId = async (req, res, next) => {
       "teams.requestingTeam.userId": userId,
     });
 
-    if (!requestingTeamMatches.length) {
-      let error = new Error("There are no matches");
-      error.statusCode = 404;
-      return next(error);
-    }
+    // if (!requestingTeamMatches.length) {
+    //   let error = new Error("There are no matches");
+    //   error.statusCode = 404;
+    //   next(error);
+    // } else
 
     res.status(200).json(requestingTeamMatches);
   } catch (e) {
@@ -138,11 +140,12 @@ const getMatchByRequestedTeamId = async (req, res, next) => {
     const requestedTeam = await Match.find({
       "teams.requestedTeam.userId": userId,
     });
-    if (!requestedTeam.length) {
-      let error = new Error("There are no match");
-      error.statusCode = 404;
-      return next(error);
-    }
+
+    // if (!requestedTeam.length) {
+    //   let error = new Error("There are no match");
+    //   error.statusCode = 404;
+    //   return next(error);
+    // }
 
     res.status(200).json(requestedTeam);
   } catch (e) {
@@ -154,6 +157,7 @@ const cancelMatchByRequestingUser = async (req, res, next) => {
   try {
     const { matchId } = req.query;
     const match = await Match.findById(matchId);
+    console.log(matchId, "matchId");
     if (!match) {
       let error = new Error("There are no match found");
       error.statusCode = 404;
@@ -165,7 +169,7 @@ const cancelMatchByRequestingUser = async (req, res, next) => {
       res.json({ message: "match deleted successfully" });
     } else {
       res.json({
-        user: match.teams.requestedTeam.userId,
+        user: match.teams.requestedTeam.name,
         message: "Already Accepted this match",
       });
     }

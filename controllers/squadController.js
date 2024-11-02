@@ -34,7 +34,11 @@ const getSquad = async (req, res, next) => {
   try {
     const { userId } = req.query;
 
+    console.log(userId, "from squad controller");
+
     const squad = await Squad.find({ userId });
+
+    console.log(squad);
 
     if (!squad) {
       res.status(404).json({ message: "squad not found" });

@@ -48,6 +48,7 @@ const ScoreSchema = new Schema(
 const TeamSchema = new Schema(
   {
     userId: { type: Types.ObjectId, ref: "User", required: true },
+    name: { type: String, default: "", required: true },
   },
   { _id: false }
 );
@@ -64,6 +65,7 @@ const MatchSchema = new Schema(
     date: { type: Date, required: true },
     teams: {
       requestingTeam: { type: TeamSchema, required: true },
+
       requestedTeam: { type: TeamSchema, required: true },
     },
     score: {
