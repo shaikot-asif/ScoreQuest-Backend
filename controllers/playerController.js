@@ -1,4 +1,5 @@
 const Player = require("../models/Player.js");
+const Squad = require("../models/squad.js");
 const { fileRemover } = require("../utils/fileRemover.js");
 
 const addPlayer = async (req, res, next) => {
@@ -105,13 +106,31 @@ const updatePlayerById = async (req, res, next) => {
 
 const deletePlayer = async (req, res, next) => {
   try {
-    const { playerId } = req.query;
+    const { playerId, userId } = req.query;
 
     const player = await Player.findById({ _id: playerId });
 
     if (!player) {
       return res.status(404).json({ message: "Player not found" });
     }
+
+    const squad = await Squad.find({ userId: userId });
+    if (!squad) {
+      let error = new Error("squad not found");
+      error.statusCode = 404;
+      next(error);
+    }
+
+    console.log(squad, playerId, userId, "from remove");
+
+    squad.map((item) => {
+      const playerIdIndex = item.selectedPlayer.indexOf(playerId);
+
+      if (playerIdIndex > -1) {
+        item.selectedPlayer.splice(playerIdIndex, 1);
+      }
+      item.save();
+    });
 
     await player.deleteOne();
     fileRemover(player.avatar);

@@ -93,7 +93,7 @@ const MatchSchema = new Schema(
     bowlingUser: {
       userId: { type: Types.ObjectId, ref: "User", default: null },
     },
-
+    totalWicketsToPlay: { type: Number, default: 11 },
     permissionRequestedScoreUpdate: { type: Boolean, default: false },
 
     status: {

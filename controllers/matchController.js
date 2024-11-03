@@ -102,6 +102,25 @@ const addANewMatch = async (req, res, next) => {
   }
 };
 
+const getMatchByMatchId = async (req, res, next) => {
+  try {
+    const { matchId } = req.query;
+
+    const match = await Match.findById(matchId);
+
+    if (!match) {
+      const error = new Error("Match not found");
+      error.statusCode = 404;
+      next(error);
+    }
+
+    res.status(200).json(match);
+  } catch (e) {
+    console.error(e);
+    return next(e);
+  }
+};
+
 const getMatchByRequestingTeamId = async (req, res, next) => {
   try {
     const { userId } = req.query;
@@ -232,8 +251,14 @@ const acceptMatchByRequestedUser = async (req, res, next) => {
 
 const updateOverAndTosWinner = async (req, res, next) => {
   try {
-    const { matchId, tossWinnerId, tossLooserId, inningsType, overs } =
-      req.body;
+    const {
+      matchId,
+      tossWinnerId,
+      tossLooserId,
+      inningsType,
+      overs,
+      totalPlayers,
+    } = req.body;
 
     const match = await Match.findById(matchId);
     if (!match) {
@@ -246,6 +271,10 @@ const updateOverAndTosWinner = async (req, res, next) => {
       match.totalOvers = overs;
     }
 
+    if (totalPlayers) {
+      match.totalWicketsToPlay = totalPlayers;
+    }
+
     if (tossWinnerId) {
       match.toss.tossWinner = tossWinnerId;
       match.tossLoserInfo.tossLoser = tossLooserId;
@@ -256,12 +285,12 @@ const updateOverAndTosWinner = async (req, res, next) => {
 
       if (inningsType === "Bowl") {
         match.tossLoserInfo.inningsType = "Bat";
-        match.battingUser.userId = tossLooserId;
-        match.bowlingUser.userId = tossWinnerId;
+        match.battingUser.userId = match.tossLoserInfo.tossLoser;
+        match.bowlingUser.userId = match.toss.tossWinner;
       } else if (inningsType === "Bat") {
         match.tossLoserInfo.inningsType = "Bowl";
-        match.battingUser.userId = tossWinnerId;
-        match.bowlingUser.userId = tossLooserId;
+        match.battingUser.userId = match.toss.tossWinner;
+        match.bowlingUser.userId = match.tossLoserInfo.tossLoser;
       } else {
         const error = new Error("Please add a valid innings type, bat/bowl");
         error.statsCode = 406;
@@ -635,7 +664,7 @@ const updateMatch = async (req, res, next) => {
     }
 
     if (
-      (batting.totalOvers / 6 === cacheDataParse.totalOvers ||
+      (parseInt(batting.totalOvers / 6) === cacheDataParse.totalOvers ||
         batting.totalWickets === 10) &&
       cacheDataParse.inningsCount === 1
     ) {
@@ -667,16 +696,19 @@ const getMatchDetails = async (req, res, next) => {
     const parseMatch = JSON.parse(redisMatch);
 
     if (parseMatch) {
-      res.status(200).json({ message: "successful", parseMatch });
+      res.status(200).json(parseMatch);
     } else {
       const match = await Match.findById(matchId);
+
+      console.log(match, "match from near redis");
 
       if (!match) {
         const error = new Error("There are no match");
         error.statusCode = 404;
         next(error);
       }
-      await client.set(`match:${matchId}`, match);
+
+      await client.set(`match:${matchId}`, JSON.stringify(match));
 
       res.status(200).send(match);
     }
@@ -688,6 +720,7 @@ const getMatchDetails = async (req, res, next) => {
 
 module.exports = {
   addANewMatch,
+  getMatchByMatchId,
   getMatchByRequestingTeamId,
   getMatchByRequestedTeamId,
   cancelMatchByRequestingUser,
