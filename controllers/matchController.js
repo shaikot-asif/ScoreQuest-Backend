@@ -134,12 +134,6 @@ const getMatchByRequestingTeamId = async (req, res, next) => {
       "teams.requestingTeam.userId": userId,
     });
 
-    // if (!requestingTeamMatches.length) {
-    //   let error = new Error("There are no matches");
-    //   error.statusCode = 404;
-    //   next(error);
-    // } else
-
     res.status(200).json(requestingTeamMatches);
   } catch (e) {
     console.error(e);
@@ -159,12 +153,6 @@ const getMatchByRequestedTeamId = async (req, res, next) => {
     const requestedTeam = await Match.find({
       "teams.requestedTeam.userId": userId,
     });
-
-    // if (!requestedTeam.length) {
-    //   let error = new Error("There are no match");
-    //   error.statusCode = 404;
-    //   return next(error);
-    // }
 
     res.status(200).json(requestedTeam);
   } catch (e) {
@@ -692,26 +680,14 @@ const getMatchDetails = async (req, res, next) => {
 
     console.log(matchId, "matchID");
 
-    const redisMatch = await client.get(`match:${matchId}`);
-    const parseMatch = JSON.parse(redisMatch);
+    const match = await Match.findById(matchId);
 
-    if (parseMatch) {
-      res.status(200).json(parseMatch);
-    } else {
-      const match = await Match.findById(matchId);
-
-      console.log(match, "match from near redis");
-
-      if (!match) {
-        const error = new Error("There are no match");
-        error.statusCode = 404;
-        next(error);
-      }
-
-      await client.set(`match:${matchId}`, JSON.stringify(match));
-
-      res.status(200).send(match);
+    if (!match) {
+      const error = new Error("There are no match");
+      error.statusCode = 404;
+      next(error);
     }
+    res.status(200).send(match);
   } catch (err) {
     console.log(err);
     next(err);

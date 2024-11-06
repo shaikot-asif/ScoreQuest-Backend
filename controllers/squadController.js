@@ -1,4 +1,5 @@
 const Squad = require("../models/squad.js");
+const Match = require("../models/match.js");
 
 const addSquad = async (req, res, next) => {
   try {
@@ -51,14 +52,31 @@ const deleteSquad = async (req, res, next) => {
     const { squadId } = req.query;
     const squad = await Squad.findById({ _id: squadId });
 
+    const matches = await Match.find({
+      status: { $in: ["pending", "accepted"] },
+      $or: [
+        { "squads.requestingTeamSquad.squadId": squadId },
+        { "squads.requestedTeamSquad.squadId": squadId },
+      ],
+    });
+
     if (!squad) {
       let error = new Error("squad not found");
       error.statusCode = 404;
       return next(error);
     }
 
-    await squad.deleteOne();
-    res.status(200).json({ message: "delete successfully" });
+    if (matches.length > 0) {
+      const error = new Error(
+        "have a match to this squad, after complete the match you can delete this"
+      );
+      error.statusCode = 0;
+      return next(error);
+    } else {
+      console.log("nothing ");
+      await squad.deleteOne();
+      res.status(200).json({ message: "delete successfully" });
+    }
   } catch (e) {
     console.log(e);
   }
@@ -66,17 +84,21 @@ const deleteSquad = async (req, res, next) => {
 
 const getSquadBySquadId = async (req, res, next) => {
   try {
-    const { _id } = req.query;
+    const { squadId } = req.query;
 
-    const squad = await Squad.findById(_id);
-
+    const squad = await Squad.findById(squadId);
+    console.log(squad, squadId, "from backend");
     if (!squad) {
       let error = new Error("squad not found");
       error.statusCode = 404;
       next(error);
     }
 
-    res.status(200).json(squad);
+    if (Array.isArray(squad)) {
+      res.status(200).json(squad);
+    } else if (squad !== null || squad !== undefined) {
+      res.status(200).json([squad]);
+    } else res.json({ message: "something went wrong" });
   } catch (error) {
     next(error);
   }
