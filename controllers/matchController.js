@@ -102,25 +102,6 @@ const addANewMatch = async (req, res, next) => {
   }
 };
 
-const getMatchByMatchId = async (req, res, next) => {
-  try {
-    const { matchId } = req.query;
-
-    const match = await Match.findById(matchId);
-
-    if (!match) {
-      const error = new Error("Match not found");
-      error.statusCode = 404;
-      next(error);
-    }
-
-    res.status(200).json(match);
-  } catch (e) {
-    console.error(e);
-    return next(e);
-  }
-};
-
 const getMatchByRequestingTeamId = async (req, res, next) => {
   try {
     const { userId } = req.query;
@@ -286,6 +267,7 @@ const updateOverAndTosWinner = async (req, res, next) => {
       }
     }
 
+    await client.set(`match:${matchId}`, JSON.stringify(match));
     await match.save();
 
     res.json({ message: "Update successfully", match });
@@ -296,8 +278,15 @@ const updateOverAndTosWinner = async (req, res, next) => {
 
 const updateMatch = async (req, res, next) => {
   try {
-    const { matchId, selectedBatterId, selectedBowlerId, perBallOccurs } =
-      req.body;
+    const {
+      matchId,
+      selectedBatterId,
+      selectedBowlerId,
+      perBallOccurs,
+      overCount,
+    } = req.body;
+
+    console.log(perBallOccurs, "perBallOccurs");
 
     const match = await Match.findById(matchId);
     if (!match) {
@@ -328,7 +317,7 @@ const updateMatch = async (req, res, next) => {
     }
 
     const cacheMatch = await client.get(`match:${matchId}`);
-    const cacheDataParse = JSON.parse(cacheMatch);
+    let cacheDataParse = JSON.parse(cacheMatch);
 
     const batting = cacheDataParse.score[battingTeam];
     const bowling = cacheDataParse.score[bowlingTeam];
@@ -433,10 +422,9 @@ const updateMatch = async (req, res, next) => {
         });
         bowling.playerStats.push(playerInit);
       }
+
       await client.set(`match:${matchId}`, JSON.stringify(cacheDataParse));
     }
-
-    //bye leg bye
 
     async function byeLegBye() {
       batting.totalRuns += perBallOccurs.byeRun || 0;
@@ -531,7 +519,7 @@ const updateMatch = async (req, res, next) => {
     }
 
     switch (perBallOccurs.ballOccurs) {
-      case "Dot":
+      case "0":
         DotOneToSix({ run: 0 });
         break;
       case "1":
@@ -546,13 +534,16 @@ const updateMatch = async (req, res, next) => {
       case "4":
         DotOneToSix({ run: 4 });
         break;
+      case "5":
+        DotOneToSix({ run: 5 });
+        break;
       case "6":
         DotOneToSix({ run: 6 });
         break;
       case "wide":
         let runs = 1 + (perBallOccurs.wideBye || 0);
         batting.totalRuns += runs;
-        batting.extraRun.bye += perBallOccurs.wideBye || 0;
+        batting.extraRun.wideBall += runs;
 
         if (foundBowlingPlayerStats(selectedBowlerId)) {
           bowling.playerStats.map((item) => {
@@ -569,6 +560,7 @@ const updateMatch = async (req, res, next) => {
           });
           bowling.playerStats.push(playerInit);
         }
+
         await client.set(`match:${matchId}`, JSON.stringify(cacheDataParse));
         break;
 
@@ -599,7 +591,6 @@ const updateMatch = async (req, res, next) => {
           bowling.playerStats.map((item) => {
             if (item.playerId === selectedBowlerId) {
               const batterScore = (perBallOccurs.batterScore || 0) + 1;
-              console.log(batterScore, "batterScore + 1", perBallOccurs);
               item.overs.givenRun += batterScore;
               item.overs.extra.noBall += 1;
             }
@@ -645,30 +636,68 @@ const updateMatch = async (req, res, next) => {
         error.statusCode = 406;
         return next(error);
     }
+    console.log(overCount, "over count");
 
-    if (perBallOccurs.over === 6) {
+    if (parseInt(overCount) === 6) {
       match.score = cacheDataParse.score;
       await match.save();
     }
 
+    console.log(cacheDataParse, "cacheDataparse outside");
+
     if (
       (parseInt(batting.totalOvers / 6) === cacheDataParse.totalOvers ||
-        batting.totalWickets === 10) &&
+        batting.totalWickets === cacheDataParse.totalWicketsToPlay - 1) &&
       cacheDataParse.inningsCount === 1
     ) {
+      console.log("from match update change batting bowling");
+      if (parseInt(overCount) < 6) {
+        match.score = cacheDataParse.score;
+        await match.save();
+      }
       cacheDataParse.inningsCount += 1;
-      match.inningsCount = cacheDataParse.inningsCount;
       const getBowling = match.bowlingUser.userId.toString();
 
       cacheDataParse.battingUser = getBowling;
       cacheDataParse.bowlingUser = getBatting;
-      match.battingUser = cacheDataParse.battingUser;
-      match.bowlingUser = cacheDataParse.bowlingUser;
-      await match.save();
-      await client.del(`match:${matchId}`);
+
+      await client.set(`match:${matchId}`, JSON.stringify(cacheDataParse));
+
+      const cacheData = await client.get(`match:${matchId}`);
+      cacheDataParse = JSON.parse(cacheData);
+      if (cacheDataParse && cacheData) {
+        match.inningsCount = cacheDataParse.inningsCount;
+        match.battingUser.userId = cacheDataParse.battingUser;
+        match.bowlingUser.userId = cacheDataParse.bowlingUser;
+        await match.save();
+      }
     }
 
-    res.json({ message: "match from update", cacheDataParse });
+    if (
+      match.inningsCount === 2 &&
+      (parseInt(batting.totalOvers / 6) === cacheDataParse.totalOvers ||
+        cacheDataParse.score[battingTeam].totalRuns >
+          match.score[bowlingTeam].totalRuns ||
+        cacheDataParse.score[battingTeam].totalRuns <
+          match.score[bowlingTeam].totalRuns ||
+        batting.totalWickets === cacheDataParse.totalWicketsToPlay - 1)
+    ) {
+      cacheDataParse.status = "completed";
+      cacheDataParse.permissionRequestedScoreUpdate = true;
+
+      await client.set(`match:${matchId}`, JSON.stringify(cacheDataParse));
+
+      const cacheData = await client.get(`match:${matchId}`);
+      cacheDataParse = JSON.parse(cacheData);
+
+      if (cacheDataParse && cacheData) {
+        match.status = cacheDataParse.status;
+        match.permissionRequestedScoreUpdate =
+          cacheDataParse.permissionRequestedScoreUpdate;
+        await match.save();
+      }
+    }
+    res.json(cacheDataParse);
   } catch (err) {
     return next(err);
   }
@@ -678,9 +707,13 @@ const getMatchDetails = async (req, res, next) => {
   try {
     const { matchId } = req.query;
 
-    console.log(matchId, "matchID");
+    const cacheMatch = await client.get(`match:${matchId}`);
+    let match = JSON.parse(cacheMatch);
 
-    const match = await Match.findById(matchId);
+    if (!match) {
+      console.log("cached match not found from get match details");
+      match = await Match.findById(matchId);
+    }
 
     if (!match) {
       const error = new Error("There are no match");
@@ -696,7 +729,6 @@ const getMatchDetails = async (req, res, next) => {
 
 module.exports = {
   addANewMatch,
-  getMatchByMatchId,
   getMatchByRequestingTeamId,
   getMatchByRequestedTeamId,
   cancelMatchByRequestingUser,
@@ -705,4 +737,5 @@ module.exports = {
   updateOverAndTosWinner,
   updateMatch,
   getMatchDetails,
+  // getCachedMatch,
 };

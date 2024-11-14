@@ -5,7 +5,6 @@ const { authGuard } = require("../middleware/authMiddleware");
 
 const {
   addANewMatch,
-  getMatchByMatchId,
   getMatchByRequestingTeamId,
   getMatchByRequestedTeamId,
   cancelMatchByRequestingUser,
@@ -14,13 +13,14 @@ const {
   updateOverAndTosWinner,
   updateMatch,
   getMatchDetails,
+  // getCachedMatch,
 } = require("../controllers/matchController.js");
 
 router.post("/addMatch", authGuard, addANewMatch);
 router.get("/requestingTeam", authGuard, getMatchByRequestingTeamId);
 router.get("/requestedTeam", authGuard, getMatchByRequestedTeamId);
-router.get("/getMatchByMatchId", authGuard, getMatchByMatchId);
 router.get("/getMatchDetails", getMatchDetails);
+// router.get("/getCachedMatch", getCachedMatch);
 router.put(
   "/rejectMatchByRequestedUser",
   authGuard,

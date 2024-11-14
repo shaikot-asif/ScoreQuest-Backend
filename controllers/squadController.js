@@ -87,7 +87,6 @@ const getSquadBySquadId = async (req, res, next) => {
     const { squadId } = req.query;
 
     const squad = await Squad.findById(squadId);
-    console.log(squad, squadId, "from backend");
     if (!squad) {
       let error = new Error("squad not found");
       error.statusCode = 404;
