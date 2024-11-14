@@ -286,8 +286,6 @@ const updateMatch = async (req, res, next) => {
       overCount,
     } = req.body;
 
-    console.log(perBallOccurs, "perBallOccurs");
-
     const match = await Match.findById(matchId);
     if (!match) {
       const error = new Error("Match not found");
@@ -677,8 +675,6 @@ const updateMatch = async (req, res, next) => {
       match.inningsCount === 2 &&
       (parseInt(batting.totalOvers / 6) === cacheDataParse.totalOvers ||
         cacheDataParse.score[battingTeam].totalRuns >
-          match.score[bowlingTeam].totalRuns ||
-        cacheDataParse.score[battingTeam].totalRuns <
           match.score[bowlingTeam].totalRuns ||
         batting.totalWickets === cacheDataParse.totalWicketsToPlay - 1)
     ) {
