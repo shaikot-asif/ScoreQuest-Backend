@@ -293,16 +293,16 @@ const updateMatch = async (req, res, next) => {
       return next(error);
     }
 
-    const getBatting = match.battingUser.userId.toString();
+    let getBatting = match?.battingUser?.userId?.toString();
 
-    const battingTeam =
-      match.score.requestingTeam.userId.toString() === getBatting
+    let battingTeam =
+      match.score.requestingTeam.userId?.toString() === getBatting
         ? "requestingTeam"
-        : match.score.requestedTeam.userId.toString() === getBatting
+        : match.score.requestedTeam.userId?.toString() === getBatting
         ? "requestedTeam"
         : "something is Wrong";
 
-    const bowlingTeam =
+    let bowlingTeam =
       battingTeam === "requestingTeam" ? "requestedTeam" : "requestingTeam";
 
     if (match) {
@@ -317,8 +317,8 @@ const updateMatch = async (req, res, next) => {
     const cacheMatch = await client.get(`match:${matchId}`);
     let cacheDataParse = JSON.parse(cacheMatch);
 
-    const batting = cacheDataParse.score[battingTeam];
-    const bowling = cacheDataParse.score[bowlingTeam];
+    let batting = cacheDataParse.score[battingTeam];
+    let bowling = cacheDataParse.score[bowlingTeam];
 
     // Function for batting player check
 
@@ -355,11 +355,15 @@ const updateMatch = async (req, res, next) => {
       BowlerId,
       outType,
       out,
+      total4s,
+      total6s,
     }) {
       const playerObj = {
         playerId: playerId,
         runs: runs || 0,
         playBalls: playBalls || 0,
+        total4s: total4s || 0,
+        total6s: total6s || 0,
         wicketTaken: {
           totalWickets: wicketTaken || 0,
         },
@@ -389,11 +393,19 @@ const updateMatch = async (req, res, next) => {
     async function DotOneToSix({ run }) {
       batting.totalOvers += 1;
       batting.totalRuns += run;
+
       if (foundBattingPlayerStats(selectedBatterId)) {
         batting.playerStats.map((item) => {
           if (item.playerId === selectedBatterId) {
             item.playBalls += 1;
             item.runs += run;
+            if (run == 4) {
+              item.total4s += 1;
+            }
+
+            if (run == 6) {
+              item.total6s += 1;
+            }
           }
         });
       } else {
@@ -401,6 +413,8 @@ const updateMatch = async (req, res, next) => {
           playerId: selectedBatterId,
           playBalls: 1,
           runs: run,
+          total4s: run === 4 ? run : 0,
+          total4s: run === 6 ? run : 0,
         });
         batting.playerStats.push(playerInit);
       }
@@ -634,14 +648,13 @@ const updateMatch = async (req, res, next) => {
         error.statusCode = 406;
         return next(error);
     }
-    console.log(overCount, "over count");
 
     if (parseInt(overCount) === 6) {
       match.score = cacheDataParse.score;
       await match.save();
     }
 
-    console.log(cacheDataParse, "cacheDataparse outside");
+    console.log(cacheDataParse, "outside condition");
 
     if (
       (parseInt(batting.totalOvers / 6) === cacheDataParse.totalOvers ||
@@ -654,30 +667,69 @@ const updateMatch = async (req, res, next) => {
         await match.save();
       }
       cacheDataParse.inningsCount += 1;
-      const getBowling = match.bowlingUser.userId.toString();
+      const getBowling = match.bowlingUser.userId;
+      getBatting = match?.battingUser?.userId;
 
-      cacheDataParse.battingUser = getBowling;
-      cacheDataParse.bowlingUser = getBatting;
+      cacheDataParse.battingUser.userId = getBowling;
+      cacheDataParse.bowlingUser.userId = getBatting;
 
       await client.set(`match:${matchId}`, JSON.stringify(cacheDataParse));
 
+      console.log(cacheDataParse, "inside condition");
+
       const cacheData = await client.get(`match:${matchId}`);
+
       cacheDataParse = JSON.parse(cacheData);
       if (cacheDataParse && cacheData) {
         match.inningsCount = cacheDataParse.inningsCount;
-        match.battingUser.userId = cacheDataParse.battingUser;
-        match.bowlingUser.userId = cacheDataParse.bowlingUser;
-        await match.save();
+        match.battingUser.userId = cacheDataParse.battingUser.userId;
+
+        match.bowlingUser.userId = cacheDataParse.bowlingUser.userId;
       }
+
+      try {
+        await match.save();
+      } catch (error) {
+        console.log(error);
+      }
+    }
+
+    if (match.inningsCount === 2) {
+      getBatting = match?.battingUser?.userId?.toString();
+
+      battingTeam =
+        match.score.requestingTeam.userId?.toString() === getBatting
+          ? "requestingTeam"
+          : match.score.requestedTeam.userId?.toString() === getBatting &&
+            "requestedTeam";
+
+      bowlingTeam =
+        battingTeam === "requestingTeam" ? "requestedTeam" : "requestingTeam";
+      const cacheData = await client.get(`match:${matchId}`);
+      cacheDataParse = JSON.parse(cacheData);
+      batting = cacheDataParse.score[battingTeam];
+      bowling = cacheDataParse.score[bowlingTeam];
+
+      console.log(
+        battingTeam,
+        "battingTEam",
+        bowlingTeam,
+        "bowlingTeam",
+        "from second condition"
+      );
     }
 
     if (
       match.inningsCount === 2 &&
       (parseInt(batting.totalOvers / 6) === cacheDataParse.totalOvers ||
-        cacheDataParse.score[battingTeam].totalRuns >
-          match.score[bowlingTeam].totalRuns ||
+        cacheDataParse.score[battingTeam]?.totalRuns >
+          match.score[bowlingTeam]?.totalRuns ||
         batting.totalWickets === cacheDataParse.totalWicketsToPlay - 1)
     ) {
+      if (parseInt(overCount) === 6) {
+        match.score = cacheDataParse.score;
+        await match.save();
+      }
       cacheDataParse.status = "completed";
       cacheDataParse.permissionRequestedScoreUpdate = true;
 
@@ -691,9 +743,17 @@ const updateMatch = async (req, res, next) => {
         match.permissionRequestedScoreUpdate =
           cacheDataParse.permissionRequestedScoreUpdate;
         await match.save();
+        await client.del(`match:${matchId}`);
       }
     }
-    res.json(cacheDataParse);
+
+    if (cacheDataParse) {
+      res.json(cacheDataParse);
+    } else {
+      const match = await Match.findById(matchId);
+
+      res.json(match);
+    }
   } catch (err) {
     return next(err);
   }
@@ -723,6 +783,118 @@ const getMatchDetails = async (req, res, next) => {
   }
 };
 
+const getTodayMatch = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) - 1 || 0;
+    const limit = parseInt(req.query.limit) || 2;
+    const search = req.query.search || "";
+
+    console.log(page, limit);
+
+    const todayDate = new Date().toDateString();
+
+    let matches;
+
+    if (!search) {
+      matches = await Match.find({ status: { $in: ["accepted"] } })
+        .skip(page * limit)
+        .limit(limit);
+    } else {
+      matches = await Match.find({
+        status: { $in: ["accepted"] },
+        $or: [
+          { "teams.requestingTeam.name": { $regex: search, $options: "i" } },
+          { "teams.requestedTeam.name": { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    const todayMatch = matches.filter((item) => {
+      if (
+        new Date(item.date).toDateString() === todayDate &&
+        item.status === "accepted"
+      ) {
+        return item;
+      }
+    });
+
+    res.send(todayMatch);
+  } catch (err) {
+    console.log(err);
+    next(err);
+  }
+};
+
+const getCompleteMatch = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) - 1 || 0;
+    const limit = parseInt(req.query.limit) || 2;
+    const search = req.query.search || "";
+
+    console.log(page, limit, search === "");
+
+    let matches;
+
+    if (!search) {
+      matches = await Match.find({ status: { $in: ["completed"] } })
+        .skip(page * limit)
+        .limit(limit);
+    } else {
+      matches = await Match.find({
+        status: { $in: ["completed"] },
+        $or: [
+          { "teams.requestingTeam.name": { $regex: search, $options: "i" } },
+          { "teams.requestedTeam.name": { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    res.send(matches);
+  } catch (err) {
+    console.log(err);
+    next(err);
+  }
+};
+
+const getUpcomingMatch = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) - 1 || 0;
+    const limit = parseInt(req.query.limit) || 2;
+    const search = req.query.search || "";
+
+    console.log(page, limit, search === "", "search");
+
+    const todayDate = new Date().toLocaleDateString();
+
+    let matches;
+
+    if (!search) {
+      matches = await Match.find({ status: { $in: ["accepted"] } })
+        .skip(page * limit)
+        .limit(limit);
+    } else {
+      matches = await Match.find({
+        status: { $in: ["accepted"] },
+        $or: [
+          { "teams.requestingTeam.name": { $regex: search, $options: "i" } },
+          { "teams.requestedTeam.name": { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    const upcomingMatch = matches.filter((item) => {
+      if (new Date(item.date).toLocaleDateString() > todayDate) {
+        return item;
+      }
+    });
+
+    res.send(upcomingMatch);
+  } catch (err) {
+    console.log(err);
+    next(err);
+  }
+};
+
 module.exports = {
   addANewMatch,
   getMatchByRequestingTeamId,
@@ -733,5 +905,7 @@ module.exports = {
   updateOverAndTosWinner,
   updateMatch,
   getMatchDetails,
-  // getCachedMatch,
+  getTodayMatch,
+  getCompleteMatch,
+  getUpcomingMatch,
 };

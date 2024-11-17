@@ -41,18 +41,18 @@ app.use("/uploads", express.static(path.join(__dirname, "/uploads")));
 app.use(errorResponserHandler);
 
 io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
+  // console.log("A user connected:", socket.id);
 
   // Listen for events from the client
   socket.on("updateScore", (data) => {
-    console.log("Score update received:", data);
+    // console.log("Score update received:", data);
     // Broadcast to all connected clients
     io.emit("scoreUpdated", data);
   });
 
   // Handle disconnection
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+    // console.log("User disconnected:", socket.id);
   });
 });
 

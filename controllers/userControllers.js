@@ -97,14 +97,9 @@ const getAllUsers = async (req, res, next) => {
       })
     );
 
-    const response = {
-      error: false,
-      page: page + 1,
-      limit,
-      users,
-    };
+    console.log(users);
 
-    res.status(200).json(response);
+    res.status(200).json(users);
   } catch (error) {
     console.log(error);
     next(error);

@@ -13,14 +13,19 @@ const {
   updateOverAndTosWinner,
   updateMatch,
   getMatchDetails,
-  // getCachedMatch,
+  getTodayMatch,
+  getCompleteMatch,
+  getUpcomingMatch,
 } = require("../controllers/matchController.js");
 
 router.post("/addMatch", authGuard, addANewMatch);
 router.get("/requestingTeam", authGuard, getMatchByRequestingTeamId);
 router.get("/requestedTeam", authGuard, getMatchByRequestedTeamId);
 router.get("/getMatchDetails", getMatchDetails);
-// router.get("/getCachedMatch", getCachedMatch);
+router.get("/getCompleteMatch", getCompleteMatch);
+router.get("/getUpcomingMatch", getUpcomingMatch);
+
+router.get("/getTodayMatch", getTodayMatch);
 router.put(
   "/rejectMatchByRequestedUser",
   authGuard,

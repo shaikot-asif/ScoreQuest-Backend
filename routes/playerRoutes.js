@@ -18,7 +18,8 @@ router.post(
   uploadPicture.single("profilePicture"),
   addPlayer
 );
-router.get("/getPlayer", authGuard, getPlayerByPlayerId);
+router.get("/getPlayer", getPlayerByPlayerId);
+
 router.get("/getPlayers", authGuard, getAllPlayersByUserId);
 
 router.put(

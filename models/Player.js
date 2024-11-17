@@ -3,6 +3,7 @@ const { Schema, model, Types } = require("mongoose");
 const StatisticsSchema = new Schema({
   totalRun: { type: Number, default: 0 },
   totalWicket: { type: Number, default: 0 },
+  totalMatchPlay: { type: Number, default: 0 },
 });
 
 const PlayerSchema = new Schema(

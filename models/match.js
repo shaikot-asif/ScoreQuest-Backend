@@ -5,6 +5,8 @@ const PlayerStatSchema = new Schema(
     playerId: { type: Types.ObjectId, ref: "Player", default: null },
     runs: { type: Number, default: 0 },
     playBalls: { type: Number, default: 0 },
+    total4s: { type: Number, default: 0 },
+    total6s: { type: Number, default: 0 },
     wicketTaken: {
       totalWickets: { type: Number, default: 0 },
     },
