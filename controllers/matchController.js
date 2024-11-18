@@ -9,7 +9,7 @@ const checkForExistingMatches = async (requestedTeam, date) => {
   const dateToDateString = new Date(date).toDateString();
 
   const matches = await Match.find({
-    // status: { $in: ["pending", "accepted"] },
+    status: { $in: ["accepted"] },
     $or: [
       { "teams.requestingTeam.userId": requestedTeam },
       { "teams.requestedTeam.userId": requestedTeam },
@@ -43,6 +43,11 @@ const addANewMatch = async (req, res, next) => {
       date
     );
 
+    const requestingTeamHasMatch = await checkForExistingMatches(
+      requestingTeam,
+      date
+    );
+
     const dateToDateString = new Date(date);
 
     const todayDate = new Date();
@@ -69,6 +74,12 @@ const addANewMatch = async (req, res, next) => {
     if (!squad) {
       const error = new Error("squad not found");
       error.statusCode = 404;
+      return next(error);
+    }
+
+    if (requestingTeamHasMatch) {
+      const error = new Error("You have a match on this day");
+      error.statusCode = 400;
       return next(error);
     }
 
@@ -654,8 +665,6 @@ const updateMatch = async (req, res, next) => {
       await match.save();
     }
 
-    console.log(cacheDataParse, "outside condition");
-
     if (
       (parseInt(batting.totalOvers / 6) === cacheDataParse.totalOvers ||
         batting.totalWickets === cacheDataParse.totalWicketsToPlay - 1) &&
@@ -742,19 +751,46 @@ const updateMatch = async (req, res, next) => {
         match.status = cacheDataParse.status;
         match.permissionRequestedScoreUpdate =
           cacheDataParse.permissionRequestedScoreUpdate;
-        await match.save();
-        await client.del(`match:${matchId}`);
+      }
+      await match.save();
+
+      for (let item of cacheDataParse.score.requestingTeam.playerStats) {
+        console.log(item, "item");
+        const playerId = item.playerId;
+        const player = await Player.findById(playerId);
+
+        player.statistics.totalMatchPlay += 1;
+        player.statistics.totalRun += item.runs;
+        player.statistics.playBalls += item.playBalls;
+        player.statistics.total4s += item.total4s;
+        player.statistics.total6s += item.total6s;
+        player.statistics.totalGivenRun += item.overs.givenRun;
+        player.statistics.totalBowlsThrough += item.overs.ball;
+        player.statistics.totalWicket += item.wicketTaken.totalWickets;
+
+        await player.save();
+      }
+
+      for (let item of cacheDataParse.score.requestedTeam.playerStats) {
+        console.log(item, "item", "player requested Team");
+
+        const playerId = item.playerId;
+        const player = await Player.findById(playerId);
+        player.statistics.totalMatchPlay += 1;
+        player.statistics.totalRun += item.runs;
+        player.statistics.playBalls += item.playBalls;
+        player.statistics.total4s += item.total4s;
+        player.statistics.total6s += item.total6s;
+        player.statistics.totalGivenRun += item.overs.givenRun;
+        player.statistics.totalBowlsThrough += item.overs.ball;
+        player.statistics.totalWicket += item.wicketTaken.totalWickets;
+        await player.save();
       }
     }
 
-    if (cacheDataParse) {
-      res.json(cacheDataParse);
-    } else {
-      const match = await Match.findById(matchId);
-
-      res.json(match);
-    }
+    res.json(cacheDataParse);
   } catch (err) {
+    console.log(err, "from err");
     return next(err);
   }
 };
@@ -764,19 +800,20 @@ const getMatchDetails = async (req, res, next) => {
     const { matchId } = req.query;
 
     const cacheMatch = await client.get(`match:${matchId}`);
-    let match = JSON.parse(cacheMatch);
+    let cacheMatchData = JSON.parse(cacheMatch);
 
-    if (!match) {
-      console.log("cached match not found from get match details");
-      match = await Match.findById(matchId);
+    const match = await Match.findById(matchId);
+
+    if (match.status === "completed") {
+      await client.del(`match:${matchId}`);
     }
 
-    if (!match) {
-      const error = new Error("There are no match");
-      error.statusCode = 404;
-      next(error);
+    if (match.status !== "completed" && cacheMatchData) {
+      let match = cacheMatchData;
+      res.status(200).send(match);
+    } else {
+      res.status(200).send(match);
     }
-    res.status(200).send(match);
   } catch (err) {
     console.log(err);
     next(err);
