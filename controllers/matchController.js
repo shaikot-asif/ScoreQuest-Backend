@@ -418,8 +418,8 @@ const updateMatch = async (req, res, next) => {
           playerId: selectedBatterId,
           playBalls: 1,
           runs: run,
-          total4s: run === 4 ? 1 : 0,
-          total4s: run === 6 ? 1 : 0,
+          total4s: run == 4 ? 1 : 0,
+          total6s: run == 6 ? 1 : 0,
         });
         batting.playerStats.push(playerInit);
       }
@@ -782,8 +782,10 @@ const getMatchDetails = async (req, res, next) => {
     const match = JSON.parse(cacheMatch);
 
     if (match) {
+      console.log("from redis");
       res.status(200).send(match);
     } else {
+      console.log("from mongodb");
       const match = await Match.findById(matchId);
       res.status(200).send(match);
     }

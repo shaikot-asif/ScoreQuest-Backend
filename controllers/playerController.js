@@ -146,7 +146,7 @@ const rankedPlayer = async (req, res, next) => {
   try {
     const player = await Player.find({ "statistics.playBalls": { $gte: 6 } });
     const bowlingPlayer = await Player.find({
-      "statistics.totalBowlsThrough": { $gte: 12 },
+      "statistics.totalBowlsThrough": { $gte: 6 },
     });
 
     function batterStatisticsCalculate(stats) {
