@@ -8,6 +8,7 @@ const {
   updatePlayerById,
   getPlayerByPlayerId,
   deletePlayer,
+  rankedPlayer,
 } = require("../controllers/playerController.js");
 const { authGuard } = require("../middleware/authMiddleware");
 const { uploadPicture } = require("../middleware/uploadPictureMiddleware.js");
@@ -19,6 +20,7 @@ router.post(
   addPlayer
 );
 router.get("/getPlayer", getPlayerByPlayerId);
+router.get("/rankedPlayer", rankedPlayer);
 
 router.get("/getPlayers", authGuard, getAllPlayersByUserId);
 

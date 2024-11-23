@@ -1,6 +1,7 @@
 const Player = require("../models/Player.js");
 const Squad = require("../models/squad.js");
 const { fileRemover } = require("../utils/fileRemover.js");
+const mergeSort = require("../utils/mergeSort.js");
 
 const addPlayer = async (req, res, next) => {
   try {
@@ -61,7 +62,7 @@ const getPlayerByPlayerId = async (req, res, next) => {
 
     res.send(player);
   } catch (error) {
-    console.log(error);
+    next(error);
   }
 };
 
@@ -100,7 +101,7 @@ const updatePlayerById = async (req, res, next) => {
       userId: player.userId,
     });
   } catch (error) {
-    console.log(error);
+    next(error);
   }
 };
 
@@ -141,10 +142,70 @@ const deletePlayer = async (req, res, next) => {
   }
 };
 
+const rankedPlayer = async (req, res, next) => {
+  try {
+    const player = await Player.find({ "statistics.playBalls": { $gte: 6 } });
+    const bowlingPlayer = await Player.find({
+      "statistics.totalBowlsThrough": { $gte: 12 },
+    });
+
+    function batterStatisticsCalculate(stats) {
+      let battingAverage = stats.totalRun / stats.totalMatchPlay;
+
+      let strikeRate = (stats.totalRun / stats.playBalls) * 100;
+
+      const batterRank =
+        battingAverage + strikeRate * 0.2 + stats.totalMatchPlay * 0.5;
+
+      console.log(parseFloat(batterRank.toFixed(2)));
+      return parseFloat(batterRank.toFixed(2)) || 0;
+    }
+
+    function bowlerStatisticsCalculate(stats) {
+      let bowlingAverage = stats?.totalWicket
+        ? parseFloat(
+            parseInt(stats?.totalGivenRun) / parseInt(stats?.totalWicket)
+          ).toFixed(2)
+        : 0;
+
+      let economyRate = stats?.totalBowlsThrough
+        ? parseFloat(
+            parseInt(stats?.totalGivenRun) /
+              parseFloat(stats?.totalBowlsThrough / 6)
+          ).toFixed(2)
+        : 0;
+
+      let bowlingRank =
+        stats?.totalWicket * 10 +
+        stats?.totalMatchPlay * 0.5 -
+        economyRate * 2 -
+        bowlingAverage * 0.5;
+
+      return parseFloat(bowlingRank.toFixed(2)) || 0;
+    }
+
+    const sortedPlayerBatting = mergeSort(player, batterStatisticsCalculate);
+    const sortedPlayerBowling = mergeSort(
+      bowlingPlayer,
+      bowlerStatisticsCalculate,
+      (chg = true)
+    );
+
+    res.json({
+      batterRank: sortedPlayerBatting,
+      bowlerRank: sortedPlayerBowling,
+    });
+  } catch (err) {
+    console.log(err);
+    next(err);
+  }
+};
+
 module.exports = {
   addPlayer,
   getAllPlayersByUserId,
   updatePlayerById,
   getPlayerByPlayerId,
   deletePlayer,
+  rankedPlayer,
 };

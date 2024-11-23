@@ -156,7 +156,6 @@ const cancelMatchByRequestingUser = async (req, res, next) => {
   try {
     const { matchId } = req.query;
     const match = await Match.findById(matchId);
-    console.log(matchId, "matchId");
     if (!match) {
       let error = new Error("There are no match found");
       error.statusCode = 404;
@@ -183,8 +182,6 @@ const rejectMatchByRequestedUser = async (req, res, next) => {
 
     const removeRequestedUserId = new mongoose.Types.ObjectId();
 
-    console.log(matchId, "matchId", note);
-
     const match = await Match.findById(matchId);
     if (!match) {
       let error = new Error("There are no Match found");
@@ -209,8 +206,6 @@ const acceptMatchByRequestedUser = async (req, res, next) => {
 
     const match = await Match.findById(matchId);
     const squad = await Squad.findById(squadId);
-
-    console.log("matchId", match, "squadId:", squad);
 
     if (!match || !squad) {
       const error = new Error("There are no match found or squadId not found");
@@ -320,7 +315,6 @@ const updateMatch = async (req, res, next) => {
       const cacheMatch = await client.get(`match:${matchId}`);
       const Match = JSON.parse(cacheMatch);
       if (match && !Match) {
-        console.log("cached successfully");
         await client.set(`match:${matchId}`, JSON.stringify(match));
       }
     }
@@ -424,8 +418,8 @@ const updateMatch = async (req, res, next) => {
           playerId: selectedBatterId,
           playBalls: 1,
           runs: run,
-          total4s: run === 4 ? run : 0,
-          total4s: run === 6 ? run : 0,
+          total4s: run === 4 ? 1 : 0,
+          total4s: run === 6 ? 1 : 0,
         });
         batting.playerStats.push(playerInit);
       }
@@ -494,7 +488,6 @@ const updateMatch = async (req, res, next) => {
             item.out.out = true;
             item.out.outType = perBallOccurs.ballOccurs;
             item.out.outTaken = selectedBowlerId;
-            item.overs.ball += 1;
 
             if (caught) {
               item.out.catchKeeper = perBallOccurs.catchKeeperId;
@@ -670,7 +663,6 @@ const updateMatch = async (req, res, next) => {
         batting.totalWickets === cacheDataParse.totalWicketsToPlay - 1) &&
       cacheDataParse.inningsCount === 1
     ) {
-      console.log("from match update change batting bowling");
       if (parseInt(overCount) < 6) {
         match.score = cacheDataParse.score;
         await match.save();
@@ -683,8 +675,6 @@ const updateMatch = async (req, res, next) => {
       cacheDataParse.bowlingUser.userId = getBatting;
 
       await client.set(`match:${matchId}`, JSON.stringify(cacheDataParse));
-
-      console.log(cacheDataParse, "inside condition");
 
       const cacheData = await client.get(`match:${matchId}`);
 
@@ -699,7 +689,7 @@ const updateMatch = async (req, res, next) => {
       try {
         await match.save();
       } catch (error) {
-        console.log(error);
+        next(error);
       }
     }
 
@@ -718,14 +708,6 @@ const updateMatch = async (req, res, next) => {
       cacheDataParse = JSON.parse(cacheData);
       batting = cacheDataParse.score[battingTeam];
       bowling = cacheDataParse.score[bowlingTeam];
-
-      console.log(
-        battingTeam,
-        "battingTEam",
-        bowlingTeam,
-        "bowlingTeam",
-        "from second condition"
-      );
     }
 
     if (
@@ -739,23 +721,8 @@ const updateMatch = async (req, res, next) => {
         match.score = cacheDataParse.score;
         await match.save();
       }
-      cacheDataParse.status = "completed";
-      cacheDataParse.permissionRequestedScoreUpdate = true;
-
-      await client.set(`match:${matchId}`, JSON.stringify(cacheDataParse));
-
-      const cacheData = await client.get(`match:${matchId}`);
-      cacheDataParse = JSON.parse(cacheData);
-
-      if (cacheDataParse && cacheData) {
-        match.status = cacheDataParse.status;
-        match.permissionRequestedScoreUpdate =
-          cacheDataParse.permissionRequestedScoreUpdate;
-      }
-      await match.save();
 
       for (let item of cacheDataParse.score.requestingTeam.playerStats) {
-        console.log(item, "item");
         const playerId = item.playerId;
         const player = await Player.findById(playerId);
 
@@ -772,8 +739,6 @@ const updateMatch = async (req, res, next) => {
       }
 
       for (let item of cacheDataParse.score.requestedTeam.playerStats) {
-        console.log(item, "item", "player requested Team");
-
         const playerId = item.playerId;
         const player = await Player.findById(playerId);
         player.statistics.totalMatchPlay += 1;
@@ -786,11 +751,25 @@ const updateMatch = async (req, res, next) => {
         player.statistics.totalWicket += item.wicketTaken.totalWickets;
         await player.save();
       }
+
+      cacheDataParse.status = "completed";
+      cacheDataParse.permissionRequestedScoreUpdate = true;
+
+      await client.set(`match:${matchId}`, JSON.stringify(cacheDataParse));
+
+      const cacheData = await client.get(`match:${matchId}`);
+      cacheDataParse = JSON.parse(cacheData);
+
+      if (cacheDataParse && cacheData) {
+        match.status = cacheDataParse.status;
+        match.permissionRequestedScoreUpdate =
+          cacheDataParse.permissionRequestedScoreUpdate;
+      }
+      await match.save();
     }
 
     res.json(cacheDataParse);
   } catch (err) {
-    console.log(err, "from err");
     return next(err);
   }
 };
@@ -800,22 +779,15 @@ const getMatchDetails = async (req, res, next) => {
     const { matchId } = req.query;
 
     const cacheMatch = await client.get(`match:${matchId}`);
-    let cacheMatchData = JSON.parse(cacheMatch);
+    const match = JSON.parse(cacheMatch);
 
-    const match = await Match.findById(matchId);
-
-    if (match.status === "completed") {
-      await client.del(`match:${matchId}`);
-    }
-
-    if (match.status !== "completed" && cacheMatchData) {
-      let match = cacheMatchData;
+    if (match) {
       res.status(200).send(match);
     } else {
+      const match = await Match.findById(matchId);
       res.status(200).send(match);
     }
   } catch (err) {
-    console.log(err);
     next(err);
   }
 };
@@ -825,8 +797,6 @@ const getTodayMatch = async (req, res, next) => {
     const page = parseInt(req.query.page) - 1 || 0;
     const limit = parseInt(req.query.limit) || 2;
     const search = req.query.search || "";
-
-    console.log(page, limit);
 
     const todayDate = new Date().toDateString();
 
@@ -857,7 +827,6 @@ const getTodayMatch = async (req, res, next) => {
 
     res.send(todayMatch);
   } catch (err) {
-    console.log(err);
     next(err);
   }
 };
@@ -867,8 +836,6 @@ const getCompleteMatch = async (req, res, next) => {
     const page = parseInt(req.query.page) - 1 || 0;
     const limit = parseInt(req.query.limit) || 2;
     const search = req.query.search || "";
-
-    console.log(page, limit, search === "");
 
     let matches;
 
