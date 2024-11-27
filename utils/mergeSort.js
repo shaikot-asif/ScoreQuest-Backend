@@ -17,29 +17,22 @@ function merge(left, right, statisticsCalculate, chg) {
     let leftResult = statisticsCalculate(left[leftIndex]?.statistics);
     let rightResult = statisticsCalculate(right[rightIndex]?.statistics);
 
-    // console.log(chg, leftResult, "leftResult", rightResult, "rightResult");
-
     if (chg) {
       if (leftResult > 0 && rightResult <= 0) {
-        console.log("from first condition");
         sortResult.push(left[leftIndex]);
         leftIndex++;
       }
 
       if (rightResult > 0 && leftResult <= 0) {
-        console.log("from first if else condition");
         sortResult.push(right[rightIndex]);
         rightIndex++;
       }
 
       if (leftResult <= 0 && rightResult <= 0) {
-        console.log("from 2nd if condition");
         if (leftResult > rightResult) {
-          console.log("from nested if condition");
           sortResult.push(left[leftIndex]);
           leftIndex++;
         } else {
-          console.log("from last else");
           sortResult.push(right[rightIndex]);
           rightIndex++;
         }
@@ -47,18 +40,15 @@ function merge(left, right, statisticsCalculate, chg) {
 
       if (leftResult > 0 && rightResult > 0) {
         if (leftResult > rightResult) {
-          console.log("from new if condition");
           sortResult.push(left[leftIndex]);
           leftIndex++;
         } else {
-          console.log("from last end else");
           sortResult.push(right[rightIndex]);
           rightIndex++;
         }
       }
     } else {
       if (leftResult > rightResult) {
-        console.log("from main else");
         sortResult.push(left[leftIndex]);
         leftIndex++;
       } else {

@@ -126,7 +126,7 @@ const getMatchByRequestingTeamId = async (req, res, next) => {
       "teams.requestingTeam.userId": userId,
     });
 
-    res.status(200).json(requestingTeamMatches);
+    res.status(200).json(requestingTeamMatches.reverse());
   } catch (e) {
     console.error(e);
     return next(e);
@@ -146,7 +146,7 @@ const getMatchByRequestedTeamId = async (req, res, next) => {
       "teams.requestedTeam.userId": userId,
     });
 
-    res.status(200).json(requestedTeam);
+    res.status(200).json(requestedTeam.reverse());
   } catch (e) {
     next(e);
   }
@@ -404,11 +404,11 @@ const updateMatch = async (req, res, next) => {
           if (item.playerId === selectedBatterId) {
             item.playBalls += 1;
             item.runs += run;
-            if (run == 4) {
+            if (run === 4) {
               item.total4s += 1;
             }
 
-            if (run == 6) {
+            if (run === 6) {
               item.total6s += 1;
             }
           }
@@ -418,8 +418,8 @@ const updateMatch = async (req, res, next) => {
           playerId: selectedBatterId,
           playBalls: 1,
           runs: run,
-          total4s: run == 4 ? 1 : 0,
-          total6s: run == 6 ? 1 : 0,
+          total4s: run === 4 ? 1 : 0,
+          total6s: run === 6 ? 1 : 0,
         });
         batting.playerStats.push(playerInit);
       }
@@ -487,7 +487,8 @@ const updateMatch = async (req, res, next) => {
           if (item.playerId === selectedBatterId) {
             item.out.out = true;
             item.out.outType = perBallOccurs.ballOccurs;
-            item.out.outTaken = selectedBowlerId;
+
+            item.out.outTaken = perBallOccurs.outTaken;
 
             if (caught) {
               item.out.catchKeeper = perBallOccurs.catchKeeperId;
@@ -592,6 +593,14 @@ const updateMatch = async (req, res, next) => {
             if (item.playerId === selectedBatterId) {
               item.playBalls += 1;
               item.runs += perBallOccurs.batterScore || 0;
+
+              if (perBallOccurs.batterScore === 4) {
+                item.total4s += 1;
+              }
+
+              if (perBallOccurs.batterScore === 6) {
+                item.total6s += 1;
+              }
             }
           });
         } else {
@@ -599,6 +608,8 @@ const updateMatch = async (req, res, next) => {
             playerId: selectedBatterId,
             playBalls: 1,
             runs: perBallOccurs.batterScore || 0,
+            total4s: perBallOccurs.batterScore === 4 ? 1 : 0,
+            total6s: perBallOccurs.batterScore === 6 ? 1 : 0,
           });
           batting.playerStats.push(playerInit);
         }
@@ -764,8 +775,14 @@ const updateMatch = async (req, res, next) => {
         match.status = cacheDataParse.status;
         match.permissionRequestedScoreUpdate =
           cacheDataParse.permissionRequestedScoreUpdate;
+        match.score = cacheDataParse.score;
+
+        await match.save();
       }
-      await match.save();
+
+      if (match.status === "completed") {
+        await client.del(`match:${matchId}`);
+      }
     }
 
     res.json(cacheDataParse);
@@ -819,15 +836,12 @@ const getTodayMatch = async (req, res, next) => {
     }
 
     const todayMatch = matches.filter((item) => {
-      if (
-        new Date(item.date).toDateString() === todayDate &&
-        item.status === "accepted"
-      ) {
+      if (new Date(item.date).toDateString() === todayDate) {
         return item;
       }
     });
 
-    res.send(todayMatch);
+    res.send(todayMatch.reverse());
   } catch (err) {
     next(err);
   }
@@ -855,7 +869,7 @@ const getCompleteMatch = async (req, res, next) => {
       });
     }
 
-    res.send(matches);
+    res.send(matches.reverse());
   } catch (err) {
     console.log(err);
     next(err);
@@ -894,7 +908,7 @@ const getUpcomingMatch = async (req, res, next) => {
       }
     });
 
-    res.send(upcomingMatch);
+    res.send(upcomingMatch.reverse());
   } catch (err) {
     console.log(err);
     next(err);

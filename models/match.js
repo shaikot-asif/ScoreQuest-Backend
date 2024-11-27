@@ -18,11 +18,12 @@ const PlayerStatSchema = new Schema(
         noBall: { type: Number, default: 0 },
       },
     },
+
     out: {
-      catchKeeper: { type: Types.ObjectId, default: null },
-      runOut: { type: Types.ObjectId, default: null },
-      stumpPingOut: { type: Types.ObjectId, default: null },
-      outTaken: { type: Types.ObjectId, default: null },
+      catchKeeper: { type: String, default: null },
+      runOut: { type: String, default: null },
+      stumpPingOut: { type: String, default: null },
+      outTaken: { type: String, default: null },
       outType: { type: String, default: "" },
       out: { type: Boolean, default: false },
     },

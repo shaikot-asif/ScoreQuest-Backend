@@ -157,21 +157,17 @@ const rankedPlayer = async (req, res, next) => {
       const batterRank =
         battingAverage + strikeRate * 0.2 + stats.totalMatchPlay * 0.5;
 
-      console.log(parseFloat(batterRank.toFixed(2)));
       return parseFloat(batterRank.toFixed(2)) || 0;
     }
 
     function bowlerStatisticsCalculate(stats) {
       let bowlingAverage = stats?.totalWicket
-        ? parseFloat(
-            parseInt(stats?.totalGivenRun) / parseInt(stats?.totalWicket)
-          ).toFixed(2)
+        ? parseFloat(stats?.totalGivenRun / stats?.totalWicket).toFixed(2)
         : 0;
 
       let economyRate = stats?.totalBowlsThrough
         ? parseFloat(
-            parseInt(stats?.totalGivenRun) /
-              parseFloat(stats?.totalBowlsThrough / 6)
+            stats?.totalGivenRun / (stats?.totalBowlsThrough / 6)
           ).toFixed(2)
         : 0;
 
